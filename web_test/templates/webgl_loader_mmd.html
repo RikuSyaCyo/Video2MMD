@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - loaders - MMD loader</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background-color: #fff;
+				color: #444;
+			}
+			a {
+				color: #08f;
+			}
+			#div_1 {
+				float: left;
+			}
+			#div_2 {
+				float: left;
+			}
+			#video_ori {
+				width: 640px;
+				height: 360px;
+				margin-top: 100px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="info">
+		<!-- <a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - MMDLoader test<br />
+		<a href="https://github.com/mrdoob/three.js/tree/master/examples/models/mmd#readme" target="_blank" rel="noopener">MMD Assets license</a><br />
+		Copyright
+		<a href="http://www.geocities.jp/higuchuu4/index_e.htm" target="_blank" rel="noopener">Model Data</a>
+		<a href="http://www.nicovideo.jp/watch/sm13147122" target="_blank" rel="noopener">Dance Data</a> -->
+		</div>
+		<div id="div_1">
+			<video controls="controls" id="video_ori" preload="auto">
+				<!-- <source src='/static/video/lmy_101_com.mp4' type='video/mp4'> -->
+				<source type='video/mp4'>
+			</video>
+			<form id="uploadForm" action="{{url_for('upload')}}" enctype="multipart/form-data" method="POST">
+				<input type="file" name="video" id="video_upload">
+				<input type='submit' value='upload'>
+			</form>
+			<form id="parameterForm" action="{{url_for('para_change')}}" method="POST">
+				Left Arm Angle: <input type="text" name="left_angle" id="left_angle">
+				Right Arm Angle: <input type="text" name="right_angle" id="right_angle">
+				<input type='submit' value='change'>
+			</form>
+		</div>
+		<script src="/static/js/libs/ammo.js"></script>
+		<script src="/static/js/jquery.min.js"></script>
+
+		<script>
+			var vid = document.getElementById("video_ori");
+			var src_name = document.cookie;
+			if(src_name.length == 0){
+				console.log(src_name);
+				vid.src = '/static/video/lmy_101_com.mp4';
+			}
+			else{
+				console.log(src_name);
+				var video_name = src_name.split(",")[0]
+				vid.src = '/static/video/' + video_name;
+			}
+			function playVid() { 
+			  vid.play();
+			  //console.log(vid.paused);
+			} 
+
+			function pauseVid() { 
+			  vid.pause();
+			  //console.log(vid.paused); 
+			} 
+			
+		</script>
+		<script>
+			$(function(){
+				$('#uploadForm').submit(function(e){
+					var formData = new FormData($('#uploadForm')[0]);
+					//console.log(formData)
+					alert('uploading new video...');
+					$.ajax({
+					    url:"{{url_for('upload')}}",
+					    type: "POST",
+					    data: formData,
+					    contentType:false,
+					    processData:false,
+					    cache: false,
+					    success:function (returndata) {
+					    	var video_name = document.getElementById("video_upload").value.substring(12);
+							document.cookie = video_name + ",-20,20";
+					    	console.log("upload success!");
+					    	location.reload();
+					　　}, 
+						error: function (returndata) { 
+					　　　　console.log("upload fail!");
+						}
+					});
+					return false;
+				});
+			});
+			$(function(){
+				$('#parameterForm').submit(function(e){
+					var left_angle = document.getElementById("left_angle").value;
+					var right_angle = document.getElementById("right_angle").value;
+					var video_name = document.getElementById("video_ori").src.split('/').pop();
+					//console.log(video_name);
+					alert('uploading new parameters...');
+					$.ajax({
+					    url:"{{url_for('para_change')}}",
+					    type: "POST",
+					    data: {left: left_angle, right: right_angle, filename: video_name},
+					    cache: false,
+					    success:function (returndata) {
+					    	var return_result = JSON.parse(returndata);
+					    	//console.log(return_result.result);
+					    	if(return_result.result == 'false'){
+					    		alert(return_result.text);
+					    	}
+					    	else{
+					    		document.cookie = video_name + "," + left_angle + "," + right_angle;
+					    		location.reload();
+					    	}
+					　　}, 
+						error: function (returndata) { 
+					　　　　console.log("upload fail!");
+						}
+					});
+					return false;
+				});
+			});
+		</script>
+		<script>
+			function load(name) {
+			    let xhr = new XMLHttpRequest(),
+			        okStatus = document.location.protocol === "file:" ? 0 : 200;
+			    xhr.open('GET', name, false);
+			    xhr.overrideMimeType("text/html;charset=utf-8");//默认为utf-8
+			    xhr.send(null);
+			    return xhr.status === okStatus ? xhr.responseText : null;
+			}
+		</script>
+		<script type="x-shader/x-vertex" id="vertexShader">
+			varying vec3 vWorldPosition;
+			void main() {
+				vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+				vWorldPosition = worldPosition.xyz;
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			}
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentShader">
+			uniform vec3 topColor;
+			uniform vec3 bottomColor;
+			uniform float offset;
+			uniform float exponent;
+			varying vec3 vWorldPosition;
+			void main() {
+				float h = normalize( vWorldPosition + offset ).y;
+				gl_FragColor = vec4( mix( bottomColor, topColor, max( pow( max( h , 0.0), exponent ), 0.0 ) ), 1.0 );
+			}
+		</script>
+
+		<script type="module">
+
+			import * as THREE from '/static/build/three.module.js';
+
+			import Stats from '/static/jsm/libs/stats.module.js';
+			import { GUI } from '/static/jsm/libs/dat.gui.module.js';
+
+			import { OrbitControls } from '/static/jsm/controls/OrbitControls.js';
+			import { OutlineEffect } from '/static/jsm/effects/OutlineEffect.js';
+			import { MMDLoader } from '/static/jsm/loaders/MMDLoader.js';
+			import { MMDAnimationHelper } from '/static/jsm/animation/MMDAnimationHelper.js';
+			import { Reflector } from '/static/jsm/objects/Reflector.js';
+
+
+			var container, stats;
+
+			var mesh, camera, scene, renderer, effect, hemiLight, hemiLightHelper, dirLight, dirLightHeper;
+			var helper, ikHelper, physicsHelper;
+
+			//video fps
+			var fps = load('static/fps.txt');
+			//vmd name
+			var vmd_name = document.cookie;
+			if(vmd_name.length == 0){
+				vmd_name = 'lmy_101_com_-20_20';
+			}
+			else{
+				var cookie_list = vmd_name.split(',');
+				vmd_name = cookie_list[0].split('.')[0] + "_" + cookie_list[1] + "_" + cookie_list[2];
+			}
+
+			var clock = new THREE.Clock();
+
+			Ammo().then( function ( AmmoLib ) {
+
+				Ammo = AmmoLib;
+
+				init();
+				animate();
+
+			} );
+
+			function init() {
+
+				container = document.createElement( 'div' );
+				container.id = 'div_2';
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight / 2, 1, 2000 );
+				camera.position.z = 30;
+				camera.position.y = 10;
+
+				// scene
+
+				scene = new THREE.Scene();
+				//scene.background = new THREE.Color( 0xffffff );
+				scene.background = new THREE.Color().setHSL( 0.6, 0, 1 );
+				scene.fog = new THREE.Fog( scene.background, 1, 200 );
+
+				var loader = new THREE.TextureLoader();
+			    var groundTexture = loader.load( '/static/models/mmd/background/stage5.jpg' );
+			    groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+			    groundTexture.repeat.set( 100, 100 );
+			    groundTexture.anisotropy = 16;
+			    var groundMaterial = new THREE.MeshLambertMaterial( { map: groundTexture } );
+			    var ground = new THREE.Mesh( new THREE.PlaneBufferGeometry( 1000, 1000 ), groundMaterial );
+			    ground.position.y = -10;
+			    ground.rotation.x = - Math.PI / 2;
+			    ground.receiveShadow = true;
+			    scene.add( ground );
+				//
+				// reflectors/mirrors
+				// scene size
+				// var WIDTH = window.innerWidth / 1.3;
+				// var HEIGHT = window.innerHeight;
+				// var geometry = new THREE.CircleBufferGeometry( 5, 5 );
+				// var groundMirror = new Reflector( geometry, {
+				// 	clipBias: 0.003,
+				// 	textureWidth: WIDTH * window.devicePixelRatio,
+				// 	textureHeight: HEIGHT * window.devicePixelRatio,
+				// 	color: 0x777777,
+				// 	recursion: 1
+				// } );
+				// groundMirror.position.y = -10;
+				// groundMirror.rotateX( - Math.PI / 2 );
+				// scene.add( groundMirror );
+
+				//background
+				var loader = new THREE.TextureLoader();
+			    
+
+				//light
+				hemiLight = new THREE.HemisphereLight( 0xffffff, 0x000000, 0.3);
+				hemiLight.color.setHSL( 1, 1, 0.95 );
+				hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+				hemiLight.position.set( 0, 50, 0 );
+				scene.add( hemiLight );
+				hemiLightHelper = new THREE.HemisphereLightHelper( hemiLight, 10 );
+				scene.add( hemiLightHelper );
+
+				dirLight = new THREE.DirectionalLight( 0xffffff, 0.3 );
+				dirLight.color.setHSL( 0.1, 1, 0.95 );
+				dirLight.position.set( - 1, 0.8, 1 );
+				dirLight.position.multiplyScalar( 30 );
+				scene.add( dirLight );
+				dirLight.castShadow = true;
+				dirLight.shadow.mapSize.width = 2048;
+				dirLight.shadow.mapSize.height = 2048;
+
+				var d = 50;
+				dirLight.shadow.camera.left = - d;
+				dirLight.shadow.camera.right = d;
+				dirLight.shadow.camera.top = d;
+				dirLight.shadow.camera.bottom = - d;
+				dirLight.shadow.camera.far = 3500;
+				dirLight.shadow.bias = - 0.0001;
+				dirLightHeper = new THREE.DirectionalLightHelper( dirLight, 10 );
+				scene.add( dirLightHeper );
+
+				//SKYDOME
+				var vertexShader = document.getElementById( 'vertexShader' ).textContent;
+				var fragmentShader = document.getElementById( 'fragmentShader' ).textContent;
+				var uniforms = {
+					"topColor": { value: new THREE.Color( 0x0077ff ) },
+					"bottomColor": { value: new THREE.Color( 0xffffff ) },
+					"offset": { value: 33 },
+					"exponent": { value: 0.6 }
+				};
+				uniforms[ "topColor" ].value.copy( hemiLight.color );
+				scene.fog.color.copy( uniforms[ "bottomColor" ].value );
+				var skyGeo = new THREE.SphereBufferGeometry( 1000, 32, 15 );
+				var skyMat = new THREE.ShaderMaterial( {
+					uniforms: uniforms,
+					vertexShader: vertexShader,
+					fragmentShader: fragmentShader,
+					side: THREE.BackSide
+				} );
+				var sky = new THREE.Mesh( skyGeo, skyMat );
+				scene.add( sky );
+
+
+				var gridHelper = new THREE.PolarGridHelper( 30, 10 );
+				gridHelper.position.y = - 8;
+				scene.add( gridHelper );
+
+				var ambient = new THREE.AmbientLight( 0xffffff, 0.55 );
+				scene.add( ambient );
+
+				//
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth / 2, window.innerHeight);
+				container.appendChild( renderer.domElement );
+				renderer.shadowMap.enabled = true;
+
+				effect = new OutlineEffect( renderer );
+
+				// STATS
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				// model
+
+				function onProgress( xhr ) {
+
+					if ( xhr.lengthComputable ) {
+
+						var percentComplete = xhr.loaded / xhr.total * 100;
+						console.log( Math.round( percentComplete, 2 ) + '% downloaded' );
+
+					}
+
+				}
+
+
+				var modelFile = '/static/models/mmd/miku/LLENN_v100.pmx';
+				var vmdFiles = [ '/static/models/mmd/vmds/' + vmd_name + '.vmd' ];
+
+				helper = new MMDAnimationHelper( {
+					afterglow: 0.5
+				} );
+
+				var loader = new MMDLoader();
+
+				// loader.load(
+				// 	// path to PMD/PMX file
+				// 	"models/mmd/background/EPT.pmx",
+				// 	// called when the resource is loaded
+				// 	function ( mesh ) {
+				// 		mesh.position.y = -17;
+				// 		mesh.position.z = -400;
+				// 		mesh.castShadow = true;
+				// 		mesh.receiveShadow = true;
+				// 		scene.add( mesh );
+
+				// 	},
+				// 	// called when loading is in progresses
+				// 	function ( xhr ) {
+
+				// 		console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+
+				// 	},
+				// 	// called when loading has errors
+				// 	function ( error ) {
+
+				// 		console.log( 'An error happened' );
+
+				// 	}
+				// );
+
+				loader.loadWithAnimation( modelFile, vmdFiles, function ( mmd ) {
+
+					mesh = mmd.mesh;
+					mesh.position.y = - 10;
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+					scene.add( mesh );
+
+
+					helper.add( mesh, {
+						animation: mmd.animation,
+						physics: true
+					} );
+
+					ikHelper = helper.objects.get( mesh ).ikSolver.createHelper();
+					ikHelper.visible = false;
+					scene.add( ikHelper );
+
+					physicsHelper = helper.objects.get( mesh ).physics.createHelper();
+					physicsHelper.visible = false;
+					scene.add( physicsHelper );
+
+					initGui();
+
+				}, onProgress, null );
+
+				var controls = new OrbitControls( camera, renderer.domElement );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				var phongMaterials;
+				var originalMaterials;
+
+				function makePhongMaterials( materials ) {
+
+					var array = [];
+
+					for ( var i = 0, il = materials.length; i < il; i ++ ) {
+
+						var m = new THREE.MeshPhongMaterial();
+						m.copy( materials[ i ] );
+						m.needsUpdate = true;
+
+						array.push( m );
+
+					}
+
+					phongMaterials = array;
+
+				}
+
+				function initGui() {
+
+					var api = {
+						'animation': true,
+						'gradient mapping': true,
+						'ik': true,
+						'outline': true,
+						'physics': true,
+						'show IK bones': false,
+						'show rigid bodies': false
+					};
+
+					var gui = new GUI();
+
+					gui.add( api, 'animation' ).onChange( function () {
+
+						helper.enable( 'animation', api[ 'animation' ] );
+
+					} );
+
+					gui.add( api, 'gradient mapping' ).onChange( function () {
+
+						if ( originalMaterials === undefined ) originalMaterials = mesh.material;
+						if ( phongMaterials === undefined ) makePhongMaterials( mesh.material );
+
+						if ( api[ 'gradient mapping' ] ) {
+
+							mesh.material = originalMaterials;
+
+						} else {
+
+							mesh.material = phongMaterials;
+
+						}
+
+					} );
+
+					gui.add( api, 'ik' ).onChange( function () {
+
+						helper.enable( 'ik', api[ 'ik' ] );
+
+					} );
+
+					gui.add( api, 'outline' ).onChange( function () {
+
+						effect.enabled = api[ 'outline' ];
+
+					} );
+
+					gui.add( api, 'physics' ).onChange( function () {
+
+						helper.enable( 'physics', api[ 'physics' ] );
+
+					} );
+
+					gui.add( api, 'show IK bones' ).onChange( function () {
+
+						ikHelper.visible = api[ 'show IK bones' ];
+
+					} );
+
+					gui.add( api, 'show rigid bodies' ).onChange( function () {
+
+						if ( physicsHelper !== undefined ) physicsHelper.visible = api[ 'show rigid bodies' ];
+
+					} );
+
+				}
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				effect.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			//
+
+			function animate() {
+				requestAnimationFrame( animate );
+
+				stats.begin();
+				render();
+				stats.end();
+
+			}
+
+			function render() {
+				var vid = document.getElementById("video_ori");
+				var speed_control = 0;
+				if(vid.paused == false){
+					speed_control = fps / 30;
+					//console.log(speed_control);
+				}
+
+				helper.update( speed_control * clock.getDelta() );
+				effect.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
