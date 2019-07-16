@@ -84,19 +84,8 @@ this part's code is in depth_viz/*
 
 ### References
 
-> OpenPose
-
-https://github.com/CMU-Perceptual-Computing-Lab/openpose
-https://github.com/ildoonet/tf-pose-estimation
-
-> 3d pose baseline
-
-https://github.com/una-dinosauria/3d-pose-baseline
-
-> depth prediction
-
-https://github.com/iro-cp/FCRN-DepthPrediction
-
-> transform to VMD file
-
-https://github.com/miu200521358/VMD-3d-pose-baseline-multi
+- https://github.com/CMU-Perceptual-Computing-Lab/openpose
+- https://github.com/ildoonet/tf-pose-estimation
+- https://github.com/una-dinosauria/3d-pose-baseline
+- https://github.com/iro-cp/FCRN-DepthPrediction
+- https://github.com/miu200521358/VMD-3d-pose-baseline-multi
